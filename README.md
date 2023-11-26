@@ -3,52 +3,57 @@
 Minimal shell that doesn't include a C compiler or other utilites from stdenvNoCC.
 
 
-## Size comparison
+# Usage
 
-mkshell-minimal:
-```
-$ nix path-info -Sh $(nix build --print-out-paths --impure --expr '(builtins.getFlake "github:viperML/mkshell-minimal" (import <nixpkgs> {}) {}).inputDerivation')
-/nix/store/r4l3h4502gfqr9fbjlggdqxc6n56gix3-nix-shell      6.5M
-```
-
-mkShellNoCC:
-```
-$ nix path-info -Sh $(nix build --print-out-paths --impure --expr '((import <nixpkgs> {}).mkShellNoCC {name="nocc";}).inputDerivation')
-/nix/store/l1b8vk1jp53jbcl9bpx53278d2s7j0ry-nocc          64.4M
-```
-
-mkShell:
-```
-$ nix path-info -Sh $(nix build --print-out-paths --impure --expr '((import <nixpkgs> {}).mkShell {name="stdenv";}).inputDerivation')
-/nix/store/z05dy3wka9za1kwl5yz5zdiz5ngnsziq-stdenv       316.9M
+```nix
+let
+  pkgs = import <nixpkgs> {};
+  mkShell = import (builtins.fetchTarball "https://github.com/viperML/mkshell-minimal/archive/refs/heads/master.tar.gz") pkgs;
+in
+  mkShell {
+    packages = [
+      pkgs.foo
+      pkgs.bar
+    ];
+  }
 ```
 
-## Usage
+## Flake
 
 ```nix
 {
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs ={
+    # ...
     mkshell-minimal.url = "github:viperML/mkshell-minimal";
   };
 
-  outputs = {nixpkgs, mkshell-minimal, ...}: let
+  outputs = { self, nixpkgs, mkshell-minimal, ... }: let
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
+    mkShell = mkshell-minimal pkgs;
   in {
-
-    #                                             VVVV pass your pkgs as argument
-    devShells.${system}.default = mkshell-minimal pkgs {
+    devShells.${system}.default = mkShell {
       packages = [
-        # Add your packages
-        pkgs.deno
-        pkgs.hugo
+        pkgs.foo
+        pkgs.bar
       ];
     };
-
   };
 }
 ```
+
+# Savings
+
+```
+$ nix build -f ./test.nix report && ./result
+:: pkgs.mkShell
+/nix/store/bki8iizd3qbk4d2jr1vjf825pcn8ixw2-nix-shell    320.6M
+:: pkgs.mkShellNoCC
+/nix/store/kvffp6al3jzwfhvmkm4c6pbvbrv0098r-nix-shell     66.1M
+:: mkshell-minimal
+/nix/store/i3v0jabdm95dwvynw7b73xllgxlwviz7-nix-shell     42.7M
+```
+
 
 ## Read also
 
